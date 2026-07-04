@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SaaS Barberías - Registro e Inicio de Sesión</title>
+    <style>
+        :root {
+            --primary: #d4af37;
+            --bg: #121212;
+            --surface: #1e1e1e;
+            --text: #ffffff;
+        }
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: var(--surface);
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 400px;
+        }
+        h2 { text-align: center; color: var(--primary); margin-bottom: 25px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-size: 0.9rem; color: #bbb; }
+        input {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            background-color: #2a2a2a;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 4px;
+        }
+        input:focus { border-color: var(--primary); outline: none; }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary);
+            color: black;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover { background-color: #bfa030; }
+        .toggle-link {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 0.85rem;
+            color: #aaa;
+            cursor: pointer;
+        }
+        .toggle-link span { color: var(--primary); text-decoration: underline; }
+        .hidden { display: none; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="container">
+    <div id="box-registro">
+        <h2>Registrar mi Barbería</h2>
+        <form id="form-registro">
+            <div class="form-group">
+                <label>Nombre de la Barbería</label>
+                <input type="text" id="reg-barberia" placeholder="Ej: Nicole Beauty Studio" required>
+            </div>
+            <div class="form-group">
+                <label>Correo Electrónico</label>
+                <input type="email" id="reg-correo" placeholder="correo@ejemplo.com" required>
+            </div>
+            <div class="form-group">
+                <label>Contraseña</label>
+                <input type="password" id="reg-password" placeholder="Mínimo 6 caracteres" required>
+            </div>
+            <button type="submit">Crear Cuenta y Sistema</button>
+        </form>
+        <div class="toggle-link" onclick="toggleFormularios()">¿Ya tienes una cuenta? <span>Inicia Sesión</span></div>
+    </div>
+
+    <div id="box-login" class="hidden">
+        <h2>Entrar al Administrador</h2>
+        <form id="form-login">
+            <div class="form-group">
+                <label>Correo Electrónico</label>
+                <input type="email" id="login-correo" required>
+            </div>
+            <div class="form-group">
+                <label>Contraseña</label>
+                <input type="password" id="login-password" required>
+            </div>
+            <button type="submit">Ingresar a mi Panel</button>
+        </form>
+        <div class="toggle-link" onclick="toggleFormularios()">¿No tienes cuenta? <span>Regístrate aquí</span></div>
+    </div>
+</div>
+
+<script>
+    // Configura aquí las credenciales de tu NUEVO proyecto de Supabase
+    const SUPABASE_URL = "TU_NUEVA_SUPABASE_URL";
+    const SUPABASE_KEY = "TU_NUEVA_SUPABASE_KEY";
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // Cambiar vistas entre Login y Registro
+    function toggleFormularios() {
+        document.getElementById('box-registro').classList.toggle('hidden');
+        document.getElementById('box-login').classList.toggle('hidden');
+    }
+
+    // LÓGICA DE REGISTRO (CREAR INQUILINO)
+    document.getElementById('form-registro').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const nombreBarberia = document.getElementById('reg-barberia').value.trim();
+        const correo = document.getElementById('reg-correo').value.trim();
+        const password = document.getElementById('reg-password').value;
+
+        // Generar un slug limpio automático (ej: "Nicole Beauty Studio" -> "nicole-beauty-studio")
+        const slug = nombreBarberia.toLowerCase()
+            .replace(/[^a-z0-9 ]/g, '') // Quita caracteres raros
+            .replace(/\s+/g, '-');      // Cambia espacios por guiones
+
+        try {
+            // 1. Registrar usuario en Autenticación de Supabase
+            const { data: authData, error: authError } = await _supabase.auth.signUp({
+                email: correo,
+                password: password
+            });
+
+            if (authError) throw authError;
+
+            const usuarioId = authData.user.id;
+
+            // 2. Insertar la barbería asociada a ese usuario
+            const { error: dbError } = await _supabase
+                .from('barberias')
+                .insert([
+                    {
+                        nombre: nombreBarberia,
+                        slug: slug,
+                        owner_id: usuarioId
+                    }
+                ]);
+
+            if (dbError) throw dbError;
+
+            alert(`¡Felicidades! Tu barbería ha sido creada.\nTu link de clientes será: tuplataforma.com/reservar.html?b=${slug}`);
+            
+            // Redirigir al login o directamente al panel administrador
+            toggleFormularios();
+
+        } catch (err) {
+            alert("Error en el registro: " + err.message);
+            console.error(err);
+        }
+    });
+
+    // LÓGICA DE INICIO DE SESIÓN
+    document.getElementById('form-login').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const correo = document.getElementById('login-correo').value.trim();
+        const password = document.getElementById('login-password').value;
+
+        try {
+            const { data, error } = await _supabase.auth.signInWithPassword({
+                email: correo,
+                password: password
+            });
+
+            if (error) throw error;
+
+            // Inicio exitoso -> Nos vamos a la pantalla de control
+            alert("¡Ingreso correcto! Redirigiendo a tu panel...");
+            window.location.href = "admin.html"; 
+
+        } catch (err) {
+            alert("Error de acceso: " + err.message);
+        }
+    });
+</script>
+</body>
+</html>
