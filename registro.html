@@ -166,26 +166,61 @@
         }
     });
 
-    // LÓGICA DE INICIO DE SESIÓN
+ // LÓGICA DE INICIO DE SESIÓN CORREGIDA
     document.getElementById('form-login').addEventListener('submit', async (e) => {
-        e.preventDefault();
+        e.preventDefault(); 
         const correo = document.getElementById('login-correo').value.trim();
         const password = document.getElementById('login-password').value;
 
         try {
+            console.log("Intentando iniciar sesión con:", correo);
             const { data, error } = await _supabase.auth.signInWithPassword({
                 email: correo,
                 password: password
             });
 
-            if (error) throw error;
+            if (error) {
+                // Si el error es por confirmación, le avisamos al usuario qué pasa en el sistema
+                if (error.message.includes("Email not confirmed")) {
+                    alert("Supabase sigue exigiendo confirmar el correo. Vamos a intentar otra cosa...");
+                }
+                throw error;
+            }
 
-            // Inicio exitoso -> Nos vamos a la pantalla de control
-            alert("¡Ingreso correcto! Redirigiendo a tu panel...");
+            alert("¡Ingreso correcto! Redirigiendo...");
             window.location.href = "admin.html"; 
 
         } catch (err) {
             alert("Error de acceso: " + err.message);
+            console.error("Detalle del error:", err);
+        }
+    });// LÓGICA DE INICIO DE SESIÓN CORREGIDA
+    document.getElementById('form-login').addEventListener('submit', async (e) => {
+        e.preventDefault(); 
+        const correo = document.getElementById('login-correo').value.trim();
+        const password = document.getElementById('login-password').value;
+
+        try {
+            console.log("Intentando iniciar sesión con:", correo);
+            const { data, error } = await _supabase.auth.signInWithPassword({
+                email: correo,
+                password: password
+            });
+
+            if (error) {
+                // Si el error es por confirmación, le avisamos al usuario qué pasa en el sistema
+                if (error.message.includes("Email not confirmed")) {
+                    alert("Supabase sigue exigiendo confirmar el correo. Vamos a intentar otra cosa...");
+                }
+                throw error;
+            }
+
+            alert("¡Ingreso correcto! Redirigiendo...");
+            window.location.href = "admin.html"; 
+
+        } catch (err) {
+            alert("Error de acceso: " + err.message);
+            console.error("Detalle del error:", err);
         }
     });
 </script>
