@@ -129,8 +129,10 @@
         document.getElementById('txt-nombre-barberia').innerText = barberia.nombre;
 
         // 🔗 Generamos y pintamos el link real usando el slug de la barbería y la variable 'b'
-        const urlReservaCompleta = `${window.location.origin}/index.html?b=${barberia.slug}`;
-        document.getElementById('input-link-reserva').value = urlReservaCompleta;
+      // CÓDIGO CORREGIDO:
+// Detecta si estás en GitHub Pages y mantiene el nombre del repositorio correcto
+const pathName = window.location.pathname.split('/')[1]; 
+const urlReservaCompleta = `${window.location.origin}/${pathName}/index.html?b=${barberia.slug}`;
 
         cargarBarberos();
         cargarServicios();
