@@ -28,6 +28,15 @@
         table { width: 100%; border-collapse: collapse; margin-top: 20px; background: var(--surface); border-radius: 6px; overflow: hidden; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
         th { background: #2a2a2a; color: var(--primary); }
+
+        /* Estilos de la tarjeta del Link de reservas */
+        .card-link-reserva { background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 30px; max-width: 600px; }
+        .card-link-reserva h3 { color: var(--primary); margin-top: 0; margin-bottom: 8px; font-size: 1.1rem; }
+        .card-link-reserva p { color: #aaa; font-size: 0.85rem; margin: 0 0 15px 0; }
+        .link-container { display: flex; gap: 10px; }
+        .link-container input { flex: 1; font-family: monospace; background: #121212; border: 1px solid #444; color: #00ff66; }
+        .link-container button { background: var(--primary); color: black; border: none; padding: 0 15px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .link-container button:hover { background: #fff; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -41,6 +50,16 @@
     </sidebar>
 
     <main>
+        <!-- 🔗 NUEVA TARJETA DEL LINK DE RESERVAS EN LA PARTE SUPERIOR -->
+        <div class="card-link-reserva">
+            <h3>🔗 Tu Link de Reservas para Clientes</h3>
+            <p>Comparte este enlace en el perfil de tu Instagram, WhatsApp o Facebook para recibir citas de inmediato.</p>
+            <div class="link-container">
+                <input type="text" id="input-link-reserva" readonly value="Generando enlace de reservas...">
+                <button onclick="copiarLinkReserva()">Copiar Link</button>
+            </div>
+        </div>
+
         <section id="panel-barberos" class="panel active">
             <h2>Gestionar mi Equipo</h2>
             <div class="form-group">
@@ -79,14 +98,12 @@
     </main>
 
 <script>
-    // Usa las mismas credenciales de tu NUEVO proyecto de Supabase
     const SUPABASE_URL = "https://mtzntjajnnhudqaykadx.supabase.co";
     const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10em50amFqbm5odWRxYXlrYWR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxODE4MTgsImV4cCI6MjA5ODc1NzgxOH0.-QTcsA_BaE9fW1QB7o_1cID03MMvbsmpKCww6htT6bA";
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let miBarberiaId = null;
 
-    // Proteger la pantalla: Verificar que el usuario esté logueado y obtener su barberia_id
     window.onload = async () => {
         const { data: { user } } = await _supabase.auth.getUser();
         
@@ -96,10 +113,10 @@
             return;
         }
 
-        // Buscar la barbería que le pertenece a este usuario administrador
+        // CORRECCIÓN: Agregamos 'slug' en el .select() para poder usarlo en el link
         const { data: barberia, error } = await _supabase
             .from('barberias')
-            .select('id, nombre')
+            .select('id, nombre, slug') 
             .eq('owner_id', user.id)
             .single();
 
@@ -111,10 +128,28 @@
         miBarberiaId = barberia.id;
         document.getElementById('txt-nombre-barberia').innerText = barberia.nombre;
 
-        // Cargar los datos iniciales filtrados por esta barbería
+        // 🔗 Generamos y pintamos el link real usando el slug de la barbería y la variable 'b'
+        const urlReservaCompleta = `${window.location.origin}/index.html?b=${barberia.slug}`;
+        document.getElementById('input-link-reserva').value = urlReservaCompleta;
+
         cargarBarberos();
         cargarServicios();
     };
+
+    // FUNCIÓN PARA COPIAR AL PORTAPAPELES
+    function copiarLinkReserva() {
+        const inputLink = document.getElementById('input-link-reserva');
+        inputLink.select();
+        inputLink.setSelectionRange(0, 99999); // Soporte móvil
+
+        navigator.clipboard.writeText(inputLink.value)
+            .then(() => {
+                alert("¡Link de reserva copiado al portapapeles con éxito!");
+            })
+            .catch(() => {
+                alert("Ocurrió un problema al copiar. Por favor, selecciónalo manualmente.");
+            });
+    }
 
     function cambiarPestana(pestana) {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -123,13 +158,12 @@
         document.getElementById(`btn-${pestana}`).classList.add('active');
     }
 
-    // --- LOGICA DE BARBEROS (CON FILTRO SAAS) ---
     async function agregarBarbero() {
         const nombre = document.getElementById('barbero-nombre').value.trim();
         if(!nombre) return alert("Escribe el nombre");
 
         const { error } = await _supabase.from('proveedores').insert([
-            { nombre: nombre, barberia_id: miBarberiaId } // Multi-inquilino seguro
+            { nombre: nombre, barberia_id: miBarberiaId }
         ]);
 
         if (error) return alert(error.message);
@@ -141,22 +175,22 @@
         const { data, error } = await _supabase
             .from('proveedores')
             .select('*')
-            .eq('barberia_id', miBarberiaId); // Solo descarga los de este inquilino
+            .eq('barberia_id', miBarberiaId);
 
         const tbody = document.getElementById('tabla-barberos');
         if (data) {
-            tbody.innerHTML = data.map(b => `<tr><td>${b.nombre}</td><td>${b.rol}</td></tr>`).join('');
+            // Se asume el rol por defecto si viene nulo
+            tbody.innerHTML = data.map(b => `<tr><td>${b.nombre}</td><td>${b.rol || 'Especialista'}</td></tr>`).join('');
         }
     }
 
-    // --- LÓGICA DE SERVICIOS (CON FILTRO SAAS) ---
     async function agregarServicio() {
         const nombre = document.getElementById('servicio-nombre').value.trim();
         const duracion = document.getElementById('servicio-duracion').value;
         if(!nombre) return alert("Escribe el nombre del servicio");
 
         const { error } = await _supabase.from('servicios').insert([
-            { nombre: nombre, duracion: parseInt(duracion), barberia_id: miBarberiaId } // Multi-inquilino seguro
+            { nombre: nombre, duracion: parseInt(duracion), barberia_id: miBarberiaId }
         ]);
 
         if (error) return alert(error.message);
@@ -168,7 +202,7 @@
         const { data } = await _supabase
             .from('servicios')
             .select('*')
-            .eq('barberia_id', miBarberiaId); // Solo descarga los de este inquilino
+            .eq('barberia_id', miBarberiaId);
 
         const tbody = document.getElementById('tabla-servicios');
         if (data) {
