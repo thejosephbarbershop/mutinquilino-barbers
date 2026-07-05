@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reservar Cita</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #1e293b; --accent: #cb9b51; --text: #334155; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f8fafc; color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        h1, h2 { color: var(--primary); text-align: center; }
+        .barberia-nombre { text-align: center; color: var(--accent); font-weight: bold; font-size: 1.4rem; margin-bottom: 20px; }
+        label { font-weight: 600; display: block; margin: 15px 0 5px; }
+        select, input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+        button { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; font-size: 1.1rem; border-radius: 6px; cursor: pointer; margin-top: 25px; transition: 0.2s; }
+        button:hover { background: var(--accent); }
+        .error-box { background: #fef2f2; color: #991b1b; padding: 15px; border-radius: 6px; text-align: center; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="error-mensaje" class="error-box"></div>
+    
+    <div id="contenido-reserva">
+        <h1 id="titulo-barberia">Cargando barbería...</h1>
+        <p class="barberia-nombre">Reserva tu cita en línea</p>
+        
+        <form id="form-reserva">
+            <label for="select-servicio">1. Selecciona el servicio:</label>
+            <select id="select-servicio" required>
+                <option value="">-- Selecciona un servicio --</option>
+            </select>
+
+            <label for="select-barbero">2. Selecciona tu barbero:</label>
+            <select id="select-barbero" required>
+                <option value="">-- Selecciona un especialista --</option>
+            </select>
+
+            <label for="fecha-cita">3. Selecciona la fecha:</label>
+            <input type="date" id="fecha-cita" required>
+
+            <label for="hora-cita">4. Selecciona la hora:</label>
+            <input type="time" id="hora-cita" required>
+
+            <label for="cliente-nombre">Tu Nombre:</label>
+            <input type="text" id="cliente-nombre" placeholder="Ej. Juan Pérez" required>
+
+            <label for="cliente-telefono">Tu Teléfono:</label>
+            <input type="tel" id="cliente-telefono" placeholder="Ej. 809-555-5555" required>
+
+            <button type="submit">Confirmar mi Reserva</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Configuración de las credenciales de Supabase
+    const SUPABASE_URL = "https://mtzntjajnnhudqaykadx.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10em50amFqbm5odWRxYXlrYWR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxODE4MTgsImV4cCI6MjA5ODc1NzgxOH0.-QTcsA_BaE9fW1QB7o_1cID03MMvbsmpKCww6htT6bA";
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let barberiaId = null;
+
+    // 1. Obtener el slug de la barbería desde la URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const barberiaSlug = urlParams.get('barberia');
+
+    async function inicializarReserva() {
+        if (!barberiaSlug) {
+            mostrarError("Falta especificar la barbería en la URL (?barberia=...)");
+            return;
+        }
+
+        try {
+            // 2. Buscar la barbería por su slug
+            const { data: barberia, error: errorBarberia } = await _supabase
+                .from('barberias')
+                .select('id, nombre')
+                .eq('slug', barberiaSlug)
+                .maybeSingle(); // Cambiado a maybeSingle para evitar excepciones duras si no encuentra nada
+
+            if (errorBarberia || !barberia) {
+                mostrarError("La barbería especificada no existe en nuestro sistema.");
+                return;
+            }
+
+            barberiaId = barberia.id;
+            document.getElementById('titulo-barberia').innerText = barberia.nombre;
+
+            // 3. Cargar dinámicamente los servicios y proveedores
+            await cargarServicios(barberiaId);
+            await cargarProveedores(barberiaId);
+
+        } catch (err) {
+            mostrarError("Ocurrió un error al cargar la página.");
+        }
+    }
+
+    async function cargarServicios(idBarberia) {
+        const { data: servicios } = await _supabase
+            .from('servicios')
+            .select('id, nombre, precio')
+            .eq('barberia_id', idBarberia);
+
+        const select = document.getElementById('select-servicio');
+        servicios?.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.innerText = `${s.nombre} - $${s.precio}`;
+            select.appendChild(opt);
+        });
+    }
+
+    async function cargarProveedores(idBarberia) {
+        const { data: proveedores } = await _supabase
+            .from('proveedores')
+            .select('id, nombre')
+            .eq('barberia_id', idBarberia);
+
+        const select = document.getElementById('select-barbero');
+        proveedores?.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.innerText = p.nombre;
+            select.appendChild(opt);
+        });
+    }
+
+    // 4. Guardar la cita al enviar el formulario
+    document.getElementById('form-reserva').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const servicioId = document.getElementById('select-servicio').value;
+        const proveedorId = document.getElementById('select-barbero').value;
+        const fecha = document.getElementById('fecha-cita').value;
+        const hora = document.getElementById('hora-cita').value;
+        const nombreCliente = document.getElementById('cliente-nombre').value.trim();
+        const telefonoCliente = document.getElementById('cliente-telefono').value.trim();
+
+        // Combinamos la fecha y hora en formato ISO string estándar para Timestamptz (ej: "2026-07-05T15:30:00")
+        const fechaHoraCombinada = `${fecha}T${hora}:00`;
+
+        const { data, error } = await _supabase
+            .from('citas')
+            .insert([{
+                barberia_id: barberiaId,
+                servicio_id: servicioId,
+                proveedor_id: proveedorId,
+                fecha_hora: fechaHoraCombinada, // Usar este formato consolidado es mucho mejor en Postgres/Supabase
+                nombre_cliente: nombreCliente,
+                telefono_cliente: telefonoCliente,
+                estado: 'pendiente'
+            }]);
+
+        if (error) {
+            alert("Error al agendar la cita: " + error.message);
+        } else {
+            alert("¡Tu cita ha sido reservada con éxito!");
+            document.getElementById('form-reserva').reset();
+        }
+    });
+
+    function mostrarError(msg) {
+        document.getElementById('contenido-reserva').style.display = 'none';
+        const box = document.getElementById('error-mensaje');
+        box.style.display = 'block';
+        box.innerText = msg;
+    }
+
+    inicializarReserva();
+</script>
+</body>
+</html>
