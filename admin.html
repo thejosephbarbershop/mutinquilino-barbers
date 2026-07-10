@@ -103,37 +103,55 @@
 
     let miBarberiaId = null;
 
- window.onload = async () => {
-    const { data: { user } } = await _supabase.auth.getUser();
-    
-    if (!user) {
-        alert("No has iniciado sesión.");
-        // Redirección simple: al estar en la misma carpeta, solo ponemos el nombre del archivo
-        window.location.href = "registro.html"; 
-        return;
-    }
-
-    // ... el resto de tu código para cargar la barbería
-};
-
-
-        miBarberiaId = barberia.id;
-        document.getElementById('txt-nombre-barberia').innerText = barberia.nombre;
-
-        // CORRECCIÓN INTELIGENTE DE URL: Detecta si estás en Localhost o en GitHub Pages
-        let urlReservaCompleta = "";
-        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-            urlReservaCompleta = `${window.location.origin}/index.html?b=${barberia.slug}`;
-        } else {
-            const pathName = window.location.pathname.split('/')[1]; 
-            urlReservaCompleta = `${window.location.origin}/${pathName}/index.html?b=${barberia.slug}`;
-        }
+    window.onload = async () => {
+        // 1. Verificar si hay usuario autenticado
+        const { data: { user } } = await _supabase.auth.getUser();
         
-        document.getElementById('input-link-reserva').value = urlReservaCompleta;
+        if (!user) {
+            alert("No has iniciado sesión.");
+            window.location.href = "registro.html"; 
+            return;
+        }
 
-        cargarBarberos();
-        cargarServicios();
-    };
+        try {
+            // 2. Traer la barbería vinculada a este usuario (dueño)
+            const { data: barberia, error: errorBarberia } = await _supabase
+                .from('barberias')
+                .select('*')
+                .eq('usuario_id', user.id) // O 'user_id', asegúrate de que coincida con tu columna en Supabase
+                .single();
+
+            if (errorBarberia || !barberia) {
+                console.error("Error al cargar barbería:", errorBarberia);
+                alert("No se encontró ninguna barbería vinculada a tu cuenta.");
+                return;
+            }
+
+            // 3. Guardar el ID y pintar los datos en pantalla
+            miBarberiaId = barberia.id;
+            document.getElementById('txt-nombre-barberia').innerText = barberia.nombre;
+
+            // 4. CORRECCIÓN DE URL: Detecta si estás en Localhost o en GitHub Pages
+            let urlReservaCompleta = "";
+            if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+                urlReservaCompleta = `${window.location.origin}/reservas.html?b=${barberia.slug}`;
+            } else {
+                const pathSegments = window.location.pathname.split('/');
+                const repoName = pathSegments[1]; // Nombre de tu repositorio en GitHub Pages
+                urlReservaCompleta = `${window.location.origin}/${repoName}/reservas.html?b=${barberia.slug}`;
+            }
+            
+            // Colocar el enlace final en el input
+            document.getElementById('input-link-reserva').value = urlReservaCompleta;
+
+            // 5. Cargar las tablas secundarias ahora que tenemos el miBarberiaId
+            cargarBarberos();
+            cargarServicios();
+
+        } catch (err) {
+            console.error("Error crítico en el panel:", err);
+        }
+    }; // <-- Ahora sí se cierra la función correctamente al final del proceso de carga
 
     function copiarLinkReserva() {
         const inputLink = document.getElementById('input-link-reserva');
@@ -172,7 +190,7 @@
             .eq('barberia_id', miBarberiaId);
 
         const tbody = document.getElementById('tabla-barberos');
-        tbody.innerHTML = ""; // Limpieza previa preventiva
+        tbody.innerHTML = ""; 
         if (data) {
             tbody.innerHTML = data.map(b => `
                 <tr>
@@ -184,7 +202,6 @@
         }
     }
 
-    // NUEVA FUNCIÓN: Eliminar barberos de Supabase
     async function eliminarBarbero(id) {
         if(!confirm("¿Estás segura de que quieres eliminar este barbero?")) return;
         const { error } = await _supabase.from('proveedores').delete().eq('id', id);
@@ -213,7 +230,7 @@
             .eq('barberia_id', miBarberiaId);
 
         const tbody = document.getElementById('tabla-servicios');
-        tbody.innerHTML = ""; // Limpieza previa preventiva
+        tbody.innerHTML = ""; 
         if (data) {
             tbody.innerHTML = data.map(s => `
                 <tr>
@@ -225,7 +242,6 @@
         }
     }
 
-    // NUEVA FUNCIÓN: Eliminar servicios de Supabase
     async function eliminarServicio(id) {
         if(!confirm("¿Estás segura de eliminar este servicio?")) return;
         const { error } = await _supabase.from('servicios').delete().eq('id', id);
