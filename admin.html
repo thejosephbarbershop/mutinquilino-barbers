@@ -8,13 +8,11 @@
         :root { --primary: #d4af37; --bg: #121212; --surface: #1e1e1e; --text: #ffffff; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; display: flex; }
         
-        /* Sidebar */
-        sidebar { width: 250px; background: var(--surface); height: 100vh; padding: 20px; box-sizing: border-box; }
-        sidebar h2 { color: var(--primary); font-size: 1.2rem; text-align: center; margin-bottom: 30px; }
-        sidebar button { width: 100%; padding: 12px; background: transparent; color: white; border: none; text-align: left; cursor: pointer; border-radius: 4px; font-size: 1rem; margin-bottom: 5px; }
-        sidebar button.active, sidebar button:hover { background: #2a2a2a; color: var(--primary); font-weight: bold; }
+        aside { width: 250px; background: var(--surface); height: 100vh; padding: 20px; box-sizing: border-box; }
+        aside h2 { color: var(--primary); font-size: 1.2rem; text-align: center; margin-bottom: 30px; }
+        aside button { width: 100%; padding: 12px; background: transparent; color: white; border: none; text-align: left; cursor: pointer; border-radius: 4px; font-size: 1rem; margin-bottom: 5px; }
+        aside button.active, aside button:hover { background: #2a2a2a; color: var(--primary); font-weight: bold; }
         
-        /* Contenido Principal */
         main { flex: 1; padding: 40px; box-sizing: border-box; overflow-y: auto; height: 100vh; }
         .panel { display: none; }
         .panel.active { display: block; }
@@ -24,12 +22,14 @@
         input, select { width: 100%; padding: 10px; background: #2a2a2a; border: 1px solid #444; color: white; border-radius: 4px; box-sizing: border-box; }
         button.btn-primary { padding: 10px 20px; background: var(--primary); color: black; border: none; font-weight: bold; border-radius: 4px; cursor: pointer; }
         
-        /* Tablas */
+        /* Botón de eliminar en las tablas */
+        .btn-danger { background: #ff4d4d; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+        .btn-danger:hover { background: #ff3333; }
+
         table { width: 100%; border-collapse: collapse; margin-top: 20px; background: var(--surface); border-radius: 6px; overflow: hidden; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
         th { background: #2a2a2a; color: var(--primary); }
 
-        /* Estilos de la tarjeta del Link de reservas */
         .card-link-reserva { background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid #333; margin-bottom: 30px; max-width: 600px; }
         .card-link-reserva h3 { color: var(--primary); margin-top: 0; margin-bottom: 8px; font-size: 1.1rem; }
         .card-link-reserva p { color: #aaa; font-size: 0.85rem; margin: 0 0 15px 0; }
@@ -42,15 +42,14 @@
 </head>
 <body>
 
-    <sidebar>
+    <aside>
         <h2 id="txt-nombre-barberia">Mi Barbería</h2>
         <button id="btn-barberos" class="active" onclick="cambiarPestana('barberos')">💇‍♂️ Barberos / Equipo</button>
         <button id="btn-servicios" onclick="cambiarPestana('servicios')">⚙️ Servicios</button>
         <button id="btn-logout" style="color: #ff4d4d; margin-top: 50px;" onclick="cerrarSesion()">Cerrar Sesión</button>
-    </sidebar>
+    </aside>
 
     <main>
-        <!-- 🔗 NUEVA TARJETA DEL LINK DE RESERVAS EN LA PARTE SUPERIOR -->
         <div class="card-link-reserva">
             <h3>🔗 Tu Link de Reservas para Clientes</h3>
             <p>Comparte este enlace en el perfil de tu Instagram, WhatsApp o Facebook para recibir citas de inmediato.</p>
@@ -70,7 +69,7 @@
 
             <table>
                 <thead>
-                    <tr><th>Nombre</th><th>Rol</th></tr>
+                    <tr><th>Nombre</th><th>Rol</th><th>Acciones</th></tr>
                 </thead>
                 <tbody id="tabla-barberos"></tbody>
             </table>
@@ -90,7 +89,7 @@
 
             <table>
                 <thead>
-                    <tr><th>Servicio</th><th>Duración</th></tr>
+                    <tr><th>Servicio</th><th>Duración</th><th>Acciones</th></tr>
                 </thead>
                 <tbody id="tabla-servicios"></tbody>
             </table>
@@ -104,57 +103,51 @@
 
     let miBarberiaId = null;
 
-    window.onload = async () => {
-        const { data: { user } } = await _supabase.auth.getUser();
-        
-        if (!user) {
-            alert("No has iniciado sesión.");
-            window.location.href = "registro.html";
-            return;
-        }
+ window.onload = async () => {
+    const { data: { user } } = await _supabase.auth.getUser();
+    
+    if (!user) {
+        alert("No has iniciado sesión.");
+        // Redirección simple: al estar en la misma carpeta, solo ponemos el nombre del archivo
+        window.location.href = "registro.html"; 
+        return;
+    }
 
-        // CORRECCIÓN: Agregamos 'slug' en el .select() para poder usarlo en el link
-        const { data: barberia, error } = await _supabase
-            .from('barberias')
-            .select('id, nombre, slug') 
-            .eq('owner_id', user.id)
-            .single();
+    // ... el resto de tu código para cargar la barbería
+};
 
-        if (error || !barberia) {
-            alert("Error al identificar tu negocio.");
-            return;
-        }
 
         miBarberiaId = barberia.id;
         document.getElementById('txt-nombre-barberia').innerText = barberia.nombre;
 
-        // 🔗 Generamos y pintamos el link real usando el slug de la barbería y la variable 'b'
-      // CÓDIGO CORREGIDO:
-// Detecta si estás en GitHub Pages y mantiene el nombre del repositorio correcto
-const pathName = window.location.pathname.split('/')[1]; 
-const urlReservaCompleta = `${window.location.origin}/multinquilino-barbers/index.html?b=${barberia.slug}`;
+        // CORRECCIÓN INTELIGENTE DE URL: Detecta si estás en Localhost o en GitHub Pages
+        let urlReservaCompleta = "";
+        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+            urlReservaCompleta = `${window.location.origin}/index.html?b=${barberia.slug}`;
+        } else {
+            const pathName = window.location.pathname.split('/')[1]; 
+            urlReservaCompleta = `${window.location.origin}/${pathName}/index.html?b=${barberia.slug}`;
+        }
+        
+        document.getElementById('input-link-reserva').value = urlReservaCompleta;
+
         cargarBarberos();
         cargarServicios();
     };
 
-    // FUNCIÓN PARA COPIAR AL PORTAPAPELES
     function copiarLinkReserva() {
         const inputLink = document.getElementById('input-link-reserva');
         inputLink.select();
-        inputLink.setSelectionRange(0, 99999); // Soporte móvil
+        inputLink.setSelectionRange(0, 99999); 
 
         navigator.clipboard.writeText(inputLink.value)
-            .then(() => {
-                alert("¡Link de reserva copiado al portapapeles con éxito!");
-            })
-            .catch(() => {
-                alert("Ocurrió un problema al copiar. Por favor, selecciónalo manualmente.");
-            });
+            .then(() => alert("¡Link de reserva copiado al portapapeles!"))
+            .catch(() => alert("Error al copiar, selecciónalo manualmente."));
     }
 
     function cambiarPestana(pestana) {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('sidebar button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('aside button').forEach(b => b.classList.remove('active'));
         document.getElementById(`panel-${pestana}`).classList.add('active');
         document.getElementById(`btn-${pestana}`).classList.add('active');
     }
@@ -179,10 +172,24 @@ const urlReservaCompleta = `${window.location.origin}/multinquilino-barbers/inde
             .eq('barberia_id', miBarberiaId);
 
         const tbody = document.getElementById('tabla-barberos');
+        tbody.innerHTML = ""; // Limpieza previa preventiva
         if (data) {
-            // Se asume el rol por defecto si viene nulo
-            tbody.innerHTML = data.map(b => `<tr><td>${b.nombre}</td><td>${b.rol || 'Especialista'}</td></tr>`).join('');
+            tbody.innerHTML = data.map(b => `
+                <tr>
+                    <td>${b.nombre}</td>
+                    <td>${b.rol || 'Especialista'}</td>
+                    <td><button class="btn-danger" onclick="eliminarBarbero(${b.id})">Eliminar</button></td>
+                </tr>
+            `).join('');
         }
+    }
+
+    // NUEVA FUNCIÓN: Eliminar barberos de Supabase
+    async function eliminarBarbero(id) {
+        if(!confirm("¿Estás segura de que quieres eliminar este barbero?")) return;
+        const { error } = await _supabase.from('proveedores').delete().eq('id', id);
+        if (error) return alert(error.message);
+        cargarBarberos();
     }
 
     async function agregarServicio() {
@@ -206,9 +213,24 @@ const urlReservaCompleta = `${window.location.origin}/multinquilino-barbers/inde
             .eq('barberia_id', miBarberiaId);
 
         const tbody = document.getElementById('tabla-servicios');
+        tbody.innerHTML = ""; // Limpieza previa preventiva
         if (data) {
-            tbody.innerHTML = data.map(s => `<tr><td>${s.nombre}</td><td>${s.duracion} min</td></tr>`).join('');
+            tbody.innerHTML = data.map(s => `
+                <tr>
+                    <td>${s.nombre}</td>
+                    <td>${s.duracion} min</td>
+                    <td><button class="btn-danger" onclick="eliminarServicio(${s.id})">Eliminar</button></td>
+                </tr>
+            `).join('');
         }
+    }
+
+    // NUEVA FUNCIÓN: Eliminar servicios de Supabase
+    async function eliminarServicio(id) {
+        if(!confirm("¿Estás segura de eliminar este servicio?")) return;
+        const { error } = await _supabase.from('servicios').delete().eq('id', id);
+        if (error) return alert(error.message);
+        cargarServicios();
     }
 
     async function cerrarSesion() {
