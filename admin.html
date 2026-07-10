@@ -118,7 +118,7 @@
             const { data: barberia, error: errorBarberia } = await _supabase
                 .from('barberias')
                 .select('*')
-                .eq('usuario_id', user.id) // O 'user_id', asegúrate de que coincida con tu columna en Supabase
+                .eq('owner_id', user_id // O 'user_id', asegúrate de que coincida con tu columna en Supabase
                 .single();
 
             if (errorBarberia || !barberia) {
@@ -150,6 +150,7 @@
 
         } catch (err) {
             console.error("Error crítico en el panel:", err);
+        
     }; // <-- Ahora sí se cierra la función correctamente al final del proceso de carga
 
     function copiarLinkReserva() {
